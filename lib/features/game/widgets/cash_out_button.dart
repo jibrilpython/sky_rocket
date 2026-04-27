@@ -8,7 +8,7 @@ import '../../../providers/game_provider.dart';
 ///
 /// - Waiting + hasBet: greyed "BET PLACED" label
 /// - Waiting + !hasBet: orange "PLACE BET" button
-/// - Flying + hasBet: green "CASH OUT $XX.XX" button
+/// - Flying + hasBet: green pulsing "CASH OUT $XX.XX" button
 /// - Flying + !hasBet: grey "BETTING CLOSED" bar
 /// - Crashed / CashedOut: result display
 class CashOutButton extends StatefulWidget {
@@ -92,8 +92,7 @@ class _CashOutButtonState extends State<CashOutButton>
         return Transform.scale(
           scale: scale,
           child: _ActionButton(
-            label:
-                'CASH OUT ${NumberFormatter.formatCurrency(winnings)}',
+            label: 'CASH OUT ${NumberFormatter.formatCurrency(winnings)}',
             color: AppColors.accentGreen,
             shadowColor: const Color(0xFF2E7D32),
             onTap: widget.onCashOut,
@@ -139,7 +138,11 @@ class _CashOutButtonState extends State<CashOutButton>
   }
 }
 
-class _ActionButton extends StatelessWidget {
+/// An action button with an animated shimmer/glare sweep.
+///
+/// A light bar sweeps left→right across the button surface every 2.4 s —
+/// the same "shiny" effect seen on premium slot machine buttons.
+class _ActionButton extends StatefulWidget {
   const _ActionButton({
     required this.label,
     required this.color,
@@ -155,46 +158,116 @@ class _ActionButton extends StatelessWidget {
   final bool glowing;
 
   @override
+  State<_ActionButton> createState() => _ActionButtonState();
+}
+
+class _ActionButtonState extends State<_ActionButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _shimmerCtrl;
+  late Animation<double> _shimmerAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat();
+    _shimmerAnim =
+        CurvedAnimation(parent: _shimmerCtrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _shimmerCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isEnabled = widget.onTap != null;
+
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: 56,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: color.withValues(alpha: 0.8),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: shadowColor,
-              blurRadius: 0,
-              offset: const Offset(0, 4),
-            ),
-            if (glowing)
-              BoxShadow(
-                color: color.withValues(alpha: 0.4),
-                blurRadius: 16,
-                spreadRadius: 2,
+      onTap: widget.onTap,
+      child: AnimatedBuilder(
+        animation: _shimmerAnim,
+        builder: (context, child) {
+          return Container(
+            width: double.infinity,
+            height: 56,
+            decoration: BoxDecoration(
+              color:
+                  isEnabled ? widget.color : widget.color.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.color.withValues(alpha: 0.8),
+                width: 1.5,
               ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              label,
-              style: AppTextStyles.button.copyWith(
-                letterSpacing: 0.8,
+              boxShadow: [
+                BoxShadow(
+                  color: widget.shadowColor,
+                  blurRadius: 0,
+                  offset: const Offset(0, 4),
+                ),
+                if (widget.glowing)
+                  BoxShadow(
+                    color: widget.color.withValues(alpha: 0.45),
+                    blurRadius: 18,
+                    spreadRadius: 2,
+                  ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                children: [
+                  // Button label (centred, fits text)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          widget.label,
+                          style: AppTextStyles.button.copyWith(
+                            letterSpacing: 0.8,
+                            color: isEnabled
+                                ? AppColors.textPrimary
+                                : AppColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Shimmer sweep — light bar gliding left→right
+                  if (isEnabled)
+                    Positioned.fill(
+                      child: Transform.translate(
+                        // Travels from -100% to +200% so glare enters and exits cleanly
+                        offset: Offset(
+                          (_shimmerAnim.value * 3 - 1.0) * 400,
+                          0,
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.transparent,
+                                Colors.white.withValues(alpha: 0.25),
+                                Colors.transparent,
+                              ],
+                              stops: const [0.0, 0.5, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

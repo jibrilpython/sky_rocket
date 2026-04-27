@@ -132,7 +132,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                               child: child,
                             );
                           },
-                          child: _buildPixelRocket(80),
+                          child: _buildPixelSpaceship(100),
                         ),
                         title: 'SKY ROCKET',
                         description: 'How high can you fly?',
@@ -143,7 +143,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                         icon: _buildHowToPlayIcon(),
                         title: 'HOW TO PLAY',
                         description:
-                            'Place your bet, watch the rocket fly,\ncash out before it crashes!',
+                            'Place your bet, watch the spaceship fly,\ncash out before it crashes!',
                       ),
 
                       // Page 3: Username
@@ -189,12 +189,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     );
   }
 
-  Widget _buildPixelRocket(double size) {
+  Widget _buildPixelSpaceship(double size) {
     return SizedBox(
       width: size,
-      height: size * 1.8,
+      height: size * 0.75,
       child: CustomPaint(
-        painter: _PixelRocketPainter(),
+        painter: _PixelSpaceshipPainter(),
       ),
     );
   }
@@ -214,7 +214,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         ],
       ),
       child: const Icon(
-        Icons.rocket_launch_rounded,
+        Icons.auto_awesome_rounded,
         size: 56,
         color: AppColors.accentOrange,
       ),
@@ -348,69 +348,152 @@ class _TwinkleStar {
   });
 }
 
-/// Draws a pixel-art rocket for the onboarding illustration.
-class _PixelRocketPainter extends CustomPainter {
+/// Draws a pixel-art spaceship for the onboarding illustration.
+/// Matches the in-game saucer shape: fuselage, dome, pods, wings, nozzles.
+class _PixelSpaceshipPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
+    final cx = w / 2;
+    final cy = h / 2;
 
-    // Body
-    final bodyPaint = Paint()..color = const Color(0xFFE0E0E0);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.25, h * 0.2, w * 0.5, h * 0.55),
-        const Radius.circular(6),
+    final outlinePaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    // ── Wing stabilisers ─────────────────────────────────
+    final finColor = const Color(0xFFFF6B35);
+    final leftWing = Path()
+      ..moveTo(cx - w * 0.24, cy + h * 0.06)
+      ..lineTo(cx - w * 0.48, cy + h * 0.32)
+      ..lineTo(cx - w * 0.36, cy + h * 0.36)
+      ..lineTo(cx - w * 0.16, cy + h * 0.14)
+      ..close();
+    final rightWing = Path()
+      ..moveTo(cx + w * 0.24, cy + h * 0.06)
+      ..lineTo(cx + w * 0.48, cy + h * 0.32)
+      ..lineTo(cx + w * 0.36, cy + h * 0.36)
+      ..lineTo(cx + w * 0.16, cy + h * 0.14)
+      ..close();
+    canvas.drawPath(leftWing, Paint()..color = finColor);
+    canvas.drawPath(leftWing, outlinePaint);
+    canvas.drawPath(rightWing, Paint()..color = finColor);
+    canvas.drawPath(rightWing, outlinePaint);
+
+    // ── Main fuselage (saucer ellipse) ───────────────────
+    final bodyColor = const Color(0xFFCFD8DC);
+    final fuselageRect = Rect.fromCenter(
+      center: Offset(cx, cy + h * 0.04),
+      width: w * 0.72,
+      height: h * 0.34,
+    );
+    final bodyGrad = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [bodyColor, bodyColor.withValues(alpha: 0.6)],
+    );
+    canvas.drawOval(
+      fuselageRect,
+      Paint()..shader = bodyGrad.createShader(fuselageRect),
+    );
+    canvas.drawOval(fuselageRect, outlinePaint);
+
+    // ── Glare highlight on body ──────────────────────────
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(cx - w * 0.06, cy - h * 0.02),
+        width: w * 0.28,
+        height: h * 0.08,
       ),
-      bodyPaint,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.25)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1),
     );
 
-    // Nose
-    final nosePaint = Paint()..color = const Color(0xFFE53935);
-    final nosePath = Path()
-      ..moveTo(w * 0.5, h * 0.02)
-      ..lineTo(w * 0.25, h * 0.2)
-      ..lineTo(w * 0.75, h * 0.2)
-      ..close();
-    canvas.drawPath(nosePath, nosePaint);
+    // ── Engine pods ──────────────────────────────────────
+    final podPaint = Paint()..color = finColor;
+    for (final px in [cx - w * 0.22, cx + w * 0.22]) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(px, cy + h * 0.16),
+            width: w * 0.16,
+            height: h * 0.1,
+          ),
+          const Radius.circular(4),
+        ),
+        podPaint,
+      );
+    }
 
-    // Window
-    final windowPaint = Paint()..color = const Color(0xFF64B5F6);
-    canvas.drawCircle(Offset(w * 0.5, h * 0.36), w * 0.12, windowPaint);
-
-    // Left Fin
-    final finPaint = Paint()..color = const Color(0xFFFF6B35);
-    final leftFin = Path()
-      ..moveTo(w * 0.25, h * 0.6)
-      ..lineTo(w * 0.05, h * 0.78)
-      ..lineTo(w * 0.25, h * 0.75)
-      ..close();
-    canvas.drawPath(leftFin, finPaint);
-
-    // Right Fin
-    final rightFin = Path()
-      ..moveTo(w * 0.75, h * 0.6)
-      ..lineTo(w * 0.95, h * 0.78)
-      ..lineTo(w * 0.75, h * 0.75)
-      ..close();
-    canvas.drawPath(rightFin, finPaint);
-
-    // Flame
+    // ── 3 flame nozzles ──────────────────────────────────
     final flamePaint = Paint()
       ..color = const Color(0xFFFFD700)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    final flame = Path()
-      ..moveTo(w * 0.3, h * 0.75)
-      ..quadraticBezierTo(w * 0.5, h * 1.0, w * 0.7, h * 0.75);
-    canvas.drawPath(flame, flamePaint);
-
-    final innerFlame = Paint()
-      ..color = const Color(0xFFFF6B35)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+    for (final fx in [cx - w * 0.22, cx, cx + w * 0.22]) {
+      canvas.drawCircle(Offset(fx, cy + h * 0.28), w * 0.04, flamePaint);
+    }
+    // Inner white core
+    final coreFlame = Paint()
+      ..color = Colors.white.withValues(alpha: 0.7)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
-    final flame2 = Path()
-      ..moveTo(w * 0.35, h * 0.75)
-      ..quadraticBezierTo(w * 0.5, h * 0.92, w * 0.65, h * 0.75);
-    canvas.drawPath(flame2, innerFlame);
+    for (final fx in [cx - w * 0.22, cx, cx + w * 0.22]) {
+      canvas.drawCircle(Offset(fx, cy + h * 0.27), w * 0.018, coreFlame);
+    }
+
+    // ── Domed cockpit (upper half) ───────────────────────
+    final noseColor = const Color(0xFFE53935);
+    final domeRect = Rect.fromCenter(
+      center: Offset(cx, cy - h * 0.08),
+      width: w * 0.32,
+      height: h * 0.3,
+    );
+    canvas.save();
+    canvas.clipRect(
+      Rect.fromLTWH(cx - w * 0.2, cy - h * 0.28, w * 0.4, h * 0.22),
+    );
+    canvas.drawOval(domeRect, Paint()..color = noseColor);
+    canvas.drawOval(domeRect, outlinePaint);
+    canvas.restore();
+
+    // ── Cockpit window ──────────────────────────────────
+    final windowPaint = Paint()..color = const Color(0xFF64B5F6);
+    canvas.drawCircle(Offset(cx, cy - h * 0.11), w * 0.07, windowPaint);
+    canvas.drawCircle(
+      Offset(cx, cy - h * 0.11),
+      w * 0.07,
+      Paint()
+        ..color = Colors.black26
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+
+    // ── Glare arc on cockpit ─────────────────────────────
+    final glarePath = Path()
+      ..moveTo(cx - w * 0.035, cy - h * 0.18)
+      ..quadraticBezierTo(
+        cx + w * 0.015, cy - h * 0.22,
+        cx + w * 0.05, cy - h * 0.14,
+      );
+    canvas.drawPath(
+      glarePath,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.7)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // ── Fuselage stripe ─────────────────────────────────
+    canvas.drawLine(
+      Offset(cx - w * 0.28, cy + h * 0.02),
+      Offset(cx + w * 0.28, cy + h * 0.02),
+      Paint()
+        ..color = noseColor.withValues(alpha: 0.5)
+        ..strokeWidth = 2,
+    );
   }
 
   @override

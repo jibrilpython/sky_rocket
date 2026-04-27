@@ -3,10 +3,11 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/number_formatter.dart';
 
-/// Multiplier text overlay on the game area.
-/// Color shifts based on multiplier value; font size scales up
-/// but is constrained by a FittedBox to prevent overflow.
-class MultiplierDisplay extends StatelessWidget {
+/// Multiplier text overlay with animated outer glow pulse and colour shift.
+///
+/// The glow ring pulses continuously while flying.
+/// Colour shifts: white → orange → gold → hot-orange as multiplier climbs.
+class MultiplierDisplay extends StatefulWidget {
   const MultiplierDisplay({
     super.key,
     required this.multiplier,
@@ -20,20 +21,45 @@ class MultiplierDisplay extends StatelessWidget {
   final bool isCrashed;
   final bool isCashedOut;
 
+  @override
+  State<MultiplierDisplay> createState() => _MultiplierDisplayState();
+}
+
+class _MultiplierDisplayState extends State<MultiplierDisplay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _pulseAnim = CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
   Color _getColor() {
-    if (isCrashed) return AppColors.accentRed;
-    if (isCashedOut) return AppColors.accentGreen;
-    if (multiplier > 5.0) return AppColors.gold;
-    if (multiplier > 3.0) return AppColors.accentOrange;
+    if (widget.isCrashed) return AppColors.accentRed;
+    if (widget.isCashedOut) return AppColors.accentGreen;
+    if (widget.multiplier >= 8.0) return const Color(0xFFFF6D00); // deep orange
+    if (widget.multiplier >= 5.0) return AppColors.gold;
+    if (widget.multiplier >= 3.0) return AppColors.accentOrange;
     return AppColors.textPrimary;
   }
 
   double _getFontSize() {
-    if (!isFlying && !isCrashed && !isCashedOut) return 24;
-    // Snap to multiples of 8 for clean pixel font rendering: 24 → 32 → 40 → 48
-    if (multiplier >= 8.0) return 48;
-    if (multiplier >= 5.0) return 40;
-    if (multiplier >= 2.5) return 32;
+    if (!widget.isFlying && !widget.isCrashed && !widget.isCashedOut) return 24;
+    if (widget.multiplier >= 8.0) return 48;
+    if (widget.multiplier >= 5.0) return 40;
+    if (widget.multiplier >= 2.5) return 32;
     return 24;
   }
 
@@ -41,35 +67,58 @@ class MultiplierDisplay extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _getColor();
     final fontSize = _getFontSize();
+    final isActive = widget.isFlying;
 
-    // Use a plain Text (no AnimatedDefaultTextStyle) — the multiplier
-    // updates every 100ms so animation interpolation fights itself and
-    // causes text to smear / disappear.
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          isCrashed
-              ? 'CRASHED!'
-              : NumberFormatter.formatMultiplier(multiplier),
-          style: AppTextStyles.pixelLarge.copyWith(
-            color: color,
-            fontSize: fontSize,
-            shadows: [
-              Shadow(
-                color: color.withValues(alpha: 0.6),
-                blurRadius: 16,
+    return AnimatedBuilder(
+      animation: _pulseAnim,
+      builder: (context, child) {
+        // Glow intensity scales with both pulse and multiplier
+        final multiplierBoost =
+            (widget.multiplier / 5.0).clamp(0.0, 1.5);
+        final glowSpread = isActive
+            ? 8 + _pulseAnim.value * 16 * multiplierBoost
+            : 0.0;
+        final glowAlpha = isActive ? 0.25 + _pulseAnim.value * 0.45 : 0.0;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: isActive
+              ? BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: glowAlpha),
+                      blurRadius: glowSpread,
+                      spreadRadius: glowSpread * 0.4,
+                    ),
+                  ],
+                )
+              : null,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              widget.isCrashed
+                  ? 'CRASHED!'
+                  : NumberFormatter.formatMultiplier(widget.multiplier),
+              style: AppTextStyles.pixelLarge.copyWith(
+                color: color,
+                fontSize: fontSize,
+                shadows: [
+                  Shadow(
+                    color: color.withValues(alpha: isActive ? 0.7 : 0.4),
+                    blurRadius: isActive ? 20 : 10,
+                  ),
+                  const Shadow(
+                    color: AppColors.shadow,
+                    blurRadius: 4,
+                    offset: Offset(2, 2),
+                  ),
+                ],
               ),
-              const Shadow(
-                color: AppColors.shadow,
-                blurRadius: 4,
-                offset: Offset(2, 2),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

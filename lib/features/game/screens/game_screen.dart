@@ -16,6 +16,7 @@ import '../widgets/bet_controls.dart';
 import '../widgets/cash_out_button.dart';
 import '../widgets/multiplier_display.dart';
 import '../widgets/round_history_bar.dart';
+import '../widgets/coin_splash_overlay.dart';
 import '../../menu/screens/menu_screen.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
 
@@ -32,6 +33,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   final AudioPlayer _whooshPlayer = AudioPlayer();
   final AudioPlayer _sfxPlayer = AudioPlayer();
   GamePhase _lastPhase = GamePhase.waiting;
+  final GlobalKey<CoinSplashOverlayState> _coinSplashKey = GlobalKey();
 
   @override
   void initState() {
@@ -69,6 +71,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       case GamePhase.cashedOut:
         _stopWhoosh();
         _playSfx(AppConstants.cashoutPath, sfxVol);
+        _coinSplashKey.currentState?.trigger();
         break;
       default:
         _stopWhoosh();
@@ -179,6 +182,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     _TopBarButton(
                       icon: Icons.grid_view_rounded,
                       onTap: _openDashboard,
+                      backgroundColor: AppColors.accentOrange,
+                      iconColor: AppColors.white,
+                      borderColor: AppColors.accentOrange.withValues(alpha: 0.8),
                     ),
                   ],
                 ),
@@ -268,6 +274,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                             message: gameState.exclamationMessage!),
                       ),
                     ),
+
+                  // Coin splash overlay — triggered on cash out
+                  Positioned.fill(
+                    child: CoinSplashOverlay(key: _coinSplashKey),
+                  ),
                 ],
               ),
             ),
@@ -327,10 +338,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 }
 
 class _TopBarButton extends StatelessWidget {
-  const _TopBarButton({required this.icon, required this.onTap});
+  const _TopBarButton({
+    required this.icon,
+    required this.onTap,
+    this.backgroundColor = AppColors.darkNavyLight,
+    this.iconColor = AppColors.textSecondary,
+    this.borderColor = AppColors.panelBorder,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
+  final Color backgroundColor;
+  final Color iconColor;
+  final Color borderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -340,9 +360,9 @@ class _TopBarButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: AppColors.darkNavyLight,
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.panelBorder, width: 1.2),
+          border: Border.all(color: borderColor, width: 1.2),
           boxShadow: const [
             BoxShadow(
               color: AppColors.shadow,
@@ -351,11 +371,12 @@ class _TopBarButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, color: AppColors.textSecondary, size: 20),
+        child: Icon(icon, color: iconColor, size: 20),
       ),
     );
   }
 }
+
 
 class _CountdownLabel extends StatelessWidget {
   const _CountdownLabel({required this.seconds});
