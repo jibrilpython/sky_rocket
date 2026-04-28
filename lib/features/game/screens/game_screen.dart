@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,10 +12,13 @@ import '../../../providers/bet_provider.dart';
 import '../../../providers/game_provider.dart';
 import '../../../providers/settings_provider.dart';
 import '../components/sky_game.dart';
+import '../widgets/auto_cash_out_control.dart';
 import '../widgets/balance_display.dart';
 import '../widgets/bet_controls.dart';
 import '../widgets/cash_out_button.dart';
+import '../widgets/live_player_ticker.dart';
 import '../widgets/multiplier_display.dart';
+import '../widgets/neon_game_frame.dart';
 import '../widgets/round_history_bar.dart';
 import '../widgets/coin_splash_overlay.dart';
 import '../../menu/screens/menu_screen.dart';
@@ -55,9 +59,24 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     // Always forward to Flame (it needs every tick for visual updates).
     _skyGame.onGamePhaseChanged(phase, multiplier);
 
-    // Only handle SFX on actual phase transitions, not on every tick.
+    // Auto cash-out: runs every flying tick (before the phase-transition guard)
+    if (phase == GamePhase.flying) {
+      final betState = ref.read(betProvider);
+      if (betState.hasBet &&
+          betState.autoCashOutAt != null &&
+          multiplier >= betState.autoCashOutAt!) {
+        ref.read(betProvider.notifier).cashOut();
+      }
+    }
+
+    // Only handle SFX + reset on actual phase transitions, not on every tick.
     if (phase == _lastPhase) return;
     _lastPhase = phase;
+
+    // Reset bet state for the new round
+    if (phase == GamePhase.waiting) {
+      ref.read(betProvider.notifier).resetForNewRound();
+    }
 
     final sfxVol = ref.read(settingsProvider).sfxVolume;
     switch (phase) {
@@ -164,8 +183,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         child: Column(
           children: [
             // ── Top Bar ──────────────────────────────────────
-            // Wrapped in RepaintBoundary so it doesn't repaint
-            // when the game area repaints.
             RepaintBoundary(
               child: Padding(
                 padding:
@@ -198,135 +215,171 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
             const SizedBox(height: 4),
 
-            // ── Game Area ────────────────────────────────────
+            // ── Game Area with Neon Frame ────────────────────
             Expanded(
-              child: Stack(
-                children: [
-                  // Flame game — isolated in its own repaint boundary
-                  // so its Canvas doesn't interfere with Flutter text
-                  RepaintBoundary(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+              child: NeonGameFrame(
+                isFlying: gameState.phase == GamePhase.flying,
+                isCrashed: gameState.phase == GamePhase.crashed,
+                child: Stack(
+                  children: [
+                    // Flame game — isolated in its own repaint boundary
+                    RepaintBoundary(
                       child: GameWidget(game: _skyGame),
                     ),
-                  ),
 
-                  // Multiplier overlay — also in its own repaint boundary
-                  Positioned.fill(
-                    child: RepaintBoundary(
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Phase label
-                            if (gameState.phase == GamePhase.waiting)
-                              _CountdownLabel(
-                                  seconds: gameState.countdownSeconds),
+                    // Multiplier overlay
+                    Positioned.fill(
+                      child: RepaintBoundary(
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Phase label
+                              if (gameState.phase == GamePhase.waiting)
+                                _CountdownLabel(
+                                    seconds: gameState.countdownSeconds),
 
-                            MultiplierDisplay(
-                              multiplier: gameState.currentMultiplier,
-                              isFlying:
-                                  gameState.phase == GamePhase.flying,
-                              isCrashed:
-                                  gameState.phase == GamePhase.crashed,
-                              isCashedOut:
-                                  gameState.phase == GamePhase.cashedOut,
-                            ),
-
-                            // Crash point display when crashed
-                            if (gameState.phase == GamePhase.crashed)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  '@ ${gameState.crashPoint.toStringAsFixed(2)}x',
-                                  style: AppTextStyles.pixelSmall.copyWith(
-                                    color: AppColors.accentRed
-                                        .withValues(alpha: 0.8),
-                                  ),
-                                ),
+                              MultiplierDisplay(
+                                multiplier: gameState.currentMultiplier,
+                                isFlying:
+                                    gameState.phase == GamePhase.flying,
+                                isCrashed:
+                                    gameState.phase == GamePhase.crashed,
+                                isCashedOut:
+                                    gameState.phase == GamePhase.cashedOut,
                               ),
 
-                            // Cashed out amount
-                            if (gameState.phase == GamePhase.cashedOut)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  'CASHED OUT! 💰',
-                                  style: AppTextStyles.pixelSmall.copyWith(
-                                    color: AppColors.accentGreen,
+                              // Crash point display when crashed
+                              if (gameState.phase == GamePhase.crashed)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    '@ ${gameState.crashPoint.toStringAsFixed(2)}x',
+                                    style: AppTextStyles.pixelSmall.copyWith(
+                                      color: AppColors.accentRed
+                                          .withValues(alpha: 0.8),
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
+
+                              // Cashed out amount
+                              if (gameState.phase == GamePhase.cashedOut)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: _CashedOutBadge(
+                                    multiplier: gameState.currentMultiplier,
+                                    betAmount: betState.betAmount,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
-                  // Exclamation messages
-                  if (gameState.exclamationMessage != null)
+                    // Exclamation messages
+                    if (gameState.exclamationMessage != null)
+                      Positioned(
+                        top: 60,
+                        left: 0,
+                        right: 0,
+                        child: RepaintBoundary(
+                          child: _ExclamationBanner(
+                              message: gameState.exclamationMessage!),
+                        ),
+                      ),
+
+                    // Coin splash overlay — triggered on cash out
+                    Positioned.fill(
+                      child: CoinSplashOverlay(key: _coinSplashKey),
+                    ),
+
+                    // Round number badge (top-left corner of game area)
                     Positioned(
-                      top: 60,
-                      left: 0,
-                      right: 0,
-                      child: RepaintBoundary(
-                        child: _ExclamationBanner(
-                            message: gameState.exclamationMessage!),
+                      top: 8,
+                      left: 10,
+                      child: _RoundBadge(
+                        roundNumber: gameState.roundHistory.length + 1,
+                        isLive: gameState.phase == GamePhase.flying,
                       ),
                     ),
 
-                  // Coin splash overlay — triggered on cash out
-                  Positioned.fill(
-                    child: CoinSplashOverlay(key: _coinSplashKey),
-                  ),
-                ],
+                    // Live player count — bottom-right corner of game canvas
+                    const Positioned(
+                      bottom: 10,
+                      right: 10,
+                      child: LivePlayerTicker(),
+                    ),
+                  ],
+                ),
               ),
             ),
 
             const SizedBox(height: 8),
 
-            // ── Bottom Controls ──────────────────────────────
+            // ── Bottom Controls with glassmorphism ────────────
             RepaintBoundary(
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                decoration: const BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(20)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.shadow,
-                      blurRadius: 12,
-                      offset: Offset(0, -4),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20)),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface.withValues(alpha: 0.85),
+                      borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20)),
+                      border: Border(
+                        top: BorderSide(
+                          color: AppColors.panelBorder.withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.shadow.withValues(alpha: 0.6),
+                          blurRadius: 20,
+                          offset: const Offset(0, -6),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    BetControls(
-                      betAmount: betState.betAmount,
-                      enabled: gameState.phase == GamePhase.waiting &&
-                          !betState.hasBet,
-                      onQuickBet: (amount) =>
-                          ref.read(betProvider.notifier).setBetAmount(amount),
-                      onIncrement: () =>
-                          ref.read(betProvider.notifier).incrementBet(),
-                      onDecrement: () =>
-                          ref.read(betProvider.notifier).decrementBet(),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        BetControls(
+                          betAmount: betState.betAmount,
+                          enabled: gameState.phase == GamePhase.waiting &&
+                              !betState.hasBet,
+                          onQuickBet: (amount) =>
+                              ref.read(betProvider.notifier).setBetAmount(amount),
+                          onIncrement: () =>
+                              ref.read(betProvider.notifier).incrementBet(),
+                          onDecrement: () =>
+                              ref.read(betProvider.notifier).decrementBet(),
+                        ),
+                        const SizedBox(height: 8),
+                        AutoCashOutControl(
+                          autoCashOutAt: betState.autoCashOutAt,
+                          enabled: gameState.phase == GamePhase.waiting,
+                          onChanged: (target) => ref
+                              .read(betProvider.notifier)
+                              .setAutoCashOut(target),
+                        ),
+                        const SizedBox(height: 10),
+                        CashOutButton(
+                          phase: gameState.phase,
+                          hasBet: betState.hasBet,
+                          multiplier: gameState.currentMultiplier,
+                          betAmount: betState.betAmount,
+                          onPlaceBet: () =>
+                              ref.read(betProvider.notifier).placeBet(),
+                          onCashOut: () =>
+                              ref.read(betProvider.notifier).cashOut(),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 10),
-                    CashOutButton(
-                      phase: gameState.phase,
-                      hasBet: betState.hasBet,
-                      multiplier: gameState.currentMultiplier,
-                      betAmount: betState.betAmount,
-                      onPlaceBet: () =>
-                          ref.read(betProvider.notifier).placeBet(),
-                      onCashOut: () =>
-                          ref.read(betProvider.notifier).cashOut(),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -336,6 +389,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     );
   }
 }
+
+// ────────────────────────────────────────────────────────────────
+// Private widgets
+// ────────────────────────────────────────────────────────────────
 
 class _TopBarButton extends StatelessWidget {
   const _TopBarButton({
@@ -377,30 +434,291 @@ class _TopBarButton extends StatelessWidget {
   }
 }
 
+/// Round number badge with a blinking "LIVE" dot during flight.
+class _RoundBadge extends StatefulWidget {
+  const _RoundBadge({required this.roundNumber, required this.isLive});
 
-class _CountdownLabel extends StatelessWidget {
+  final int roundNumber;
+  final bool isLive;
+
+  @override
+  State<_RoundBadge> createState() => _RoundBadgeState();
+}
+
+class _RoundBadgeState extends State<_RoundBadge>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _blink;
+
+  @override
+  void initState() {
+    super.initState();
+    _blink = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _blink.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _blink,
+      builder: (_, _) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.darkNavy.withValues(alpha: 0.75),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppColors.panelBorder.withValues(alpha: 0.4),
+            width: 0.8,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.isLive) ...[
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.accentRed
+                      .withValues(alpha: 0.5 + _blink.value * 0.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.accentRed
+                          .withValues(alpha: _blink.value * 0.4),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 5),
+            ],
+            Text(
+              'ROUND #${widget.roundNumber}',
+              style: AppTextStyles.label.copyWith(
+                fontSize: 7,
+                letterSpacing: 1.5,
+                color: widget.isLive
+                    ? AppColors.textPrimary.withValues(alpha: 0.8)
+                    : AppColors.textMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Animated countdown label with circular progress ring.
+class _CountdownLabel extends StatefulWidget {
   const _CountdownLabel({required this.seconds});
 
   final int seconds;
 
   @override
+  State<_CountdownLabel> createState() => _CountdownLabelState();
+}
+
+class _CountdownLabelState extends State<_CountdownLabel>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _progressCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _progressCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _progressCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final total = AppConstants.bettingWindowSeconds;
+    final progress = widget.seconds / total;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Circular progress ring around countdown number
+          SizedBox(
+            width: 52,
+            height: 52,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                AnimatedBuilder(
+                  animation: _progressCtrl,
+                  builder: (_, _) => SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 3,
+                      backgroundColor:
+                          AppColors.panelBorder.withValues(alpha: 0.3),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        widget.seconds <= 2
+                            ? AppColors.accentRed
+                            : AppColors.accentOrange,
+                      ),
+                    ),
+                  ),
+                ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  transitionBuilder: (child, anim) => ScaleTransition(
+                    scale: anim,
+                    child: child,
+                  ),
+                  child: Text(
+                    '${widget.seconds}',
+                    key: ValueKey<int>(widget.seconds),
+                    style: AppTextStyles.pixelMedium.copyWith(
+                      color: widget.seconds <= 2
+                          ? AppColors.accentRed
+                          : AppColors.accentOrange,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.accentOrange.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: AppColors.accentOrange.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Text(
+              'PLACE YOUR BETS',
+              style: AppTextStyles.label.copyWith(
+                color: AppColors.accentOrange,
+                fontSize: 9,
+                letterSpacing: 2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Cashed-out result badge with win amount and multiplier.
+class _CashedOutBadge extends StatefulWidget {
+  const _CashedOutBadge({
+    required this.multiplier,
+    required this.betAmount,
+  });
+
+  final double multiplier;
+  final double betAmount;
+
+  @override
+  State<_CashedOutBadge> createState() => _CashedOutBadgeState();
+}
+
+class _CashedOutBadgeState extends State<_CashedOutBadge>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _scaleAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut),
+    );
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final winnings = widget.betAmount * widget.multiplier;
+
+    return ScaleTransition(
+      scale: _scaleAnim,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.accentOrange.withValues(alpha: 0.2),
+          gradient: LinearGradient(
+            colors: [
+              AppColors.accentGreen.withValues(alpha: 0.25),
+              AppColors.accentGreen.withValues(alpha: 0.08),
+            ],
+          ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: AppColors.accentOrange.withValues(alpha: 0.4),
+            color: AppColors.accentGreen.withValues(alpha: 0.5),
+            width: 1.5,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accentGreen.withValues(alpha: 0.3),
+              blurRadius: 12,
+              spreadRadius: 2,
+            ),
+          ],
         ),
-        child: Text(
-          'STARTING IN ${seconds}s',
-          style: AppTextStyles.pixelSmall.copyWith(
-            color: AppColors.accentOrange,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('💰', style: TextStyle(fontSize: 16)),
+            const SizedBox(width: 8),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'CASHED OUT!',
+                  style: AppTextStyles.label.copyWith(
+                    color: AppColors.accentGreen,
+                    fontSize: 8,
+                    letterSpacing: 2,
+                  ),
+                ),
+                Text(
+                  '\$${winnings.toStringAsFixed(2)}',
+                  style: AppTextStyles.pixelSmall.copyWith(
+                    color: AppColors.accentGreen,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -446,16 +764,32 @@ class _ExclamationBannerState extends State<_ExclamationBanner>
     return ScaleTransition(
       scale: _scaleAnim,
       child: Center(
-        child: Text(
-          widget.message,
-          style: AppTextStyles.pixelMedium.copyWith(
-            color: AppColors.gold,
-            shadows: [
-              Shadow(
-                color: AppColors.gold.withValues(alpha: 0.5),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.gold.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.gold.withValues(alpha: 0.3),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.gold.withValues(alpha: 0.2),
                 blurRadius: 12,
               ),
             ],
+          ),
+          child: Text(
+            widget.message,
+            style: AppTextStyles.pixelMedium.copyWith(
+              color: AppColors.gold,
+              shadows: [
+                Shadow(
+                  color: AppColors.gold.withValues(alpha: 0.5),
+                  blurRadius: 12,
+                ),
+              ],
+            ),
           ),
         ),
       ),

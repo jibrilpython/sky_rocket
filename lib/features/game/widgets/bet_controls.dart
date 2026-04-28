@@ -5,6 +5,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/utils/number_formatter.dart';
 
 /// Betting controls: quick bet buttons, +/- buttons, and bet amount display.
+/// Enhanced with gradient selected state and subtle animations.
 class BetControls extends StatelessWidget {
   const BetControls({
     super.key,
@@ -40,6 +41,7 @@ class BetControls extends StatelessWidget {
                   borderColor: isSelected
                       ? AppColors.accentOrange
                       : AppColors.panelBorder,
+                  isSelected: isSelected,
                   onTap: enabled ? () => onQuickBet(amount) : null,
                 ),
               ),
@@ -62,20 +64,47 @@ class BetControls extends StatelessWidget {
               child: Container(
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppColors.surface,
+                      AppColors.surface.withValues(alpha: 0.8),
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.panelBorder, width: 1.5),
+                  border: Border.all(
+                    color: AppColors.gold.withValues(alpha: 0.3),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.gold.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                    ),
+                  ],
                 ),
                 alignment: Alignment.center,
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      NumberFormatter.formatCurrency(betAmount),
-                      style: AppTextStyles.pixelMedium.copyWith(
-                        color: AppColors.gold,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.toll_rounded,
+                          color: AppColors.gold.withValues(alpha: 0.5),
+                          size: 14,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          NumberFormatter.formatCurrency(betAmount),
+                          style: AppTextStyles.pixelMedium.copyWith(
+                            color: AppColors.gold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -96,7 +125,7 @@ class BetControls extends StatelessWidget {
   }
 }
 
-/// A pixel-style button with 3D shadow depth.
+/// A pixel-style button with 3D shadow depth and optional selected state glow.
 class _PixelButton extends StatelessWidget {
   const _PixelButton({
     required this.label,
@@ -104,6 +133,7 @@ class _PixelButton extends StatelessWidget {
     required this.borderColor,
     this.onTap,
     this.width,
+    this.isSelected = false,
   });
 
   final String label;
@@ -111,6 +141,7 @@ class _PixelButton extends StatelessWidget {
   final Color borderColor;
   final VoidCallback? onTap;
   final double? width;
+  final bool isSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -118,18 +149,31 @@ class _PixelButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
         width: width,
         height: 42,
         decoration: BoxDecoration(
-          color: isEnabled ? color : color.withValues(alpha: 0.5),
+          gradient: isSelected
+              ? LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    color,
+                    color.withValues(alpha: 0.8),
+                  ],
+                )
+              : null,
+          color: isSelected ? null : (isEnabled ? color : color.withValues(alpha: 0.5)),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: borderColor, width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: AppColors.shadow.withValues(alpha: 0.6),
-              blurRadius: 0,
-              offset: const Offset(0, 3),
+              color: isSelected
+                  ? color.withValues(alpha: 0.3)
+                  : AppColors.shadow.withValues(alpha: 0.6),
+              blurRadius: isSelected ? 8 : 0,
+              offset: isSelected ? Offset.zero : const Offset(0, 3),
             ),
           ],
         ),

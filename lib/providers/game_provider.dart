@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_constants.dart';
+import '../models/bonus_event.dart';
 import '../services/crash_algorithm_service.dart';
 import '../services/storage_service.dart';
-
 import 'player_stats_provider.dart';
 
 /// The current phase of the game.
@@ -24,6 +24,7 @@ class GameState {
     this.roundHistory = const [],
     this.countdownSeconds = 5,
     this.exclamationMessage,
+    this.bonusEvent,
   });
 
   final GamePhase phase;
@@ -32,6 +33,7 @@ class GameState {
   final List<double> roundHistory;
   final int countdownSeconds;
   final String? exclamationMessage;
+  final BonusEvent? bonusEvent;
 
   GameState copyWith({
     GamePhase? phase,
@@ -40,7 +42,9 @@ class GameState {
     List<double>? roundHistory,
     int? countdownSeconds,
     String? exclamationMessage,
+    BonusEvent? bonusEvent,
     bool clearExclamation = false,
+    bool clearBonus = false,
   }) {
     return GameState(
       phase: phase ?? this.phase,
@@ -50,6 +54,7 @@ class GameState {
       countdownSeconds: countdownSeconds ?? this.countdownSeconds,
       exclamationMessage:
           clearExclamation ? null : (exclamationMessage ?? this.exclamationMessage),
+      bonusEvent: clearBonus ? null : (bonusEvent ?? this.bonusEvent),
     );
   }
 }
@@ -105,12 +110,15 @@ class GameNotifier extends StateNotifier<GameState> {
   /// Begin the flight phase — multiplier starts rising.
   void _startFlying() {
     final newCrashPoint = _crashAlgo.generateCrashPoint();
+    final bonusEvent = BonusEvent.getRandomBonusEvent();
+    
     _elapsedSeconds = 0;
 
     state = state.copyWith(
       phase: GamePhase.flying,
       currentMultiplier: 1.00,
       crashPoint: newCrashPoint,
+      bonusEvent: bonusEvent,
       clearExclamation: true,
     );
     onPhaseChanged?.call(GamePhase.flying, 1.00);
@@ -128,7 +136,15 @@ class GameNotifier extends StateNotifier<GameState> {
   /// Called every 100ms during flight.
   void _tick() {
     _elapsedSeconds += AppConstants.tickIntervalMs / 1000.0;
-    final newMultiplier = _crashAlgo.calculateMultiplier(_elapsedSeconds);
+    var newMultiplier = _crashAlgo.calculateMultiplier(_elapsedSeconds);
+
+    // Apply bonus event multiplier if active
+    if (state.bonusEvent != null) {
+      if (_elapsedSeconds >= state.bonusEvent!.triggerTime &&
+          _elapsedSeconds <= state.bonusEvent!.triggerTime + (state.bonusEvent!.durationMs / 1000.0)) {
+        newMultiplier *= state.bonusEvent!.multiplierModifier;
+      }
+    }
 
     if (newMultiplier >= state.crashPoint) {
       _crash();

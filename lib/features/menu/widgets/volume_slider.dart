@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 
-/// Styled volume slider with label, icon, and value display.
+/// Premium volume slider with icon background, custom track,
+/// and percentage display in a contained card.
 class VolumeSlider extends StatelessWidget {
   const VolumeSlider({
     super.key,
@@ -19,20 +20,65 @@ class VolumeSlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+    final pct = (value * 100).toInt();
+    final isZero = pct == 0;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.panelBorder.withValues(alpha: 0.4),
+          width: 1,
+        ),
+      ),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.textSecondary, size: 20),
-          const SizedBox(width: 10),
-          Text(label, style: AppTextStyles.bodySmall),
-          const SizedBox(width: 8),
+          // Icon with background
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: isZero
+                  ? AppColors.textMuted.withValues(alpha: 0.1)
+                  : AppColors.accentOrange.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: isZero
+                  ? AppColors.textMuted.withValues(alpha: 0.4)
+                  : AppColors.accentOrange,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Label
+          SizedBox(
+            width: 42,
+            child: Text(
+              label,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: isZero ? AppColors.textMuted : AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // Slider
           Expanded(
             child: SliderTheme(
               data: SliderTheme.of(context).copyWith(
                 trackHeight: 4,
+                activeTrackColor: AppColors.accentOrange,
+                inactiveTrackColor: AppColors.panelBorder.withValues(alpha: 0.4),
+                thumbColor: AppColors.accentOrange,
+                overlayColor: AppColors.accentOrange.withValues(alpha: 0.12),
                 thumbShape:
-                    const RoundSliderThumbShape(enabledThumbRadius: 8),
+                    const RoundSliderThumbShape(enabledThumbRadius: 7),
               ),
               child: Slider(
                 value: value,
@@ -42,12 +88,24 @@ class VolumeSlider extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(
-            width: 36,
+          // Percentage badge
+          Container(
+            width: 42,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: isZero
+                  ? AppColors.textMuted.withValues(alpha: 0.1)
+                  : AppColors.accentOrange.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
             child: Text(
-              '${(value * 100).toInt()}%',
-              style: AppTextStyles.label.copyWith(color: AppColors.textSecondary),
-              textAlign: TextAlign.right,
+              '$pct%',
+              style: AppTextStyles.label.copyWith(
+                color: isZero ? AppColors.textMuted : AppColors.accentOrange,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
         ],

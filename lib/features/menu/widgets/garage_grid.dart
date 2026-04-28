@@ -3,7 +3,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../models/rocket_skin.dart';
 
-/// 3x2 grid of rocket skin selection cards.
+/// Premium 3x2 grid of rocket skin selection cards with
+/// animated selection state, glow effects, and skin preview badges.
 class GarageGrid extends StatelessWidget {
   const GarageGrid({
     super.key,
@@ -23,70 +24,213 @@ class GarageGrid extends StatelessWidget {
         crossAxisCount: 3,
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        childAspectRatio: 0.85,
+        childAspectRatio: 0.82,
       ),
       itemCount: RocketSkin.allSkins.length,
       itemBuilder: (context, index) {
         final skin = RocketSkin.allSkins[index];
         final isSelected = skin.id == selectedSkinId;
-        return GestureDetector(
+        return _SkinCard(
+          skin: skin,
+          isSelected: isSelected,
           onTap: () => onSkinSelected(skin.id),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+        );
+      },
+    );
+  }
+}
+
+class _SkinCard extends StatefulWidget {
+  const _SkinCard({
+    required this.skin,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final RocketSkin skin;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  State<_SkinCard> createState() => _SkinCardState();
+}
+
+class _SkinCardState extends State<_SkinCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _glowCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _glowCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    if (widget.isSelected) _glowCtrl.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(_SkinCard old) {
+    super.didUpdateWidget(old);
+    if (widget.isSelected && !old.isSelected) {
+      _glowCtrl.repeat(reverse: true);
+    } else if (!widget.isSelected && old.isSelected) {
+      _glowCtrl.stop();
+      _glowCtrl.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _glowCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedBuilder(
+        animation: _glowCtrl,
+        builder: (_, child) {
+          final glowAlpha = widget.isSelected ? 0.15 + _glowCtrl.value * 0.2 : 0.0;
+
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected
-                    ? AppColors.accentOrange
-                    : AppColors.panelBorder,
-                width: isSelected ? 2.5 : 1.2,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.isSelected
+                    ? [
+                        AppColors.accentOrange.withValues(alpha: 0.15),
+                        AppColors.surface.withValues(alpha: 0.8),
+                      ]
+                    : [
+                        AppColors.surface,
+                        AppColors.surface.withValues(alpha: 0.6),
+                      ],
               ),
-              boxShadow: isSelected
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: widget.isSelected
+                    ? AppColors.accentOrange
+                    : AppColors.panelBorder.withValues(alpha: 0.5),
+                width: widget.isSelected ? 2.0 : 1.0,
+              ),
+              boxShadow: widget.isSelected
                   ? [
                       BoxShadow(
-                        color: AppColors.accentOrange.withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        spreadRadius: 1,
+                        color: AppColors.accentOrange
+                            .withValues(alpha: glowAlpha),
+                        blurRadius: 14,
+                        spreadRadius: 2,
                       ),
                     ]
-                  : null,
+                  : [
+                      BoxShadow(
+                        color: AppColors.shadow.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
             ),
-            child: Column(
+            child: child,
+          );
+        },
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Main content
+            Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                const SizedBox(height: 4),
                 // Mini spaceship preview
                 SizedBox(
                   width: 52,
                   height: 38,
                   child: CustomPaint(
-                    painter: _MiniSpaceshipPainter(skin: skin),
+                    painter: _MiniSpaceshipPainter(skin: widget.skin),
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
+                // Skin name
                 Text(
-                  skin.name,
+                  widget.skin.name,
                   style: AppTextStyles.chipText.copyWith(
-                    color: isSelected
+                    color: widget.isSelected
                         ? AppColors.accentOrange
                         : AppColors.textSecondary,
                     fontSize: 8,
                   ),
                 ),
-                if (isSelected)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Icon(
-                      Icons.check_circle,
-                      color: AppColors.accentOrange,
-                      size: 14,
-                    ),
-                  ),
+                const SizedBox(height: 4),
+                // Color dots preview
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ColorDot(color: widget.skin.bodyColor),
+                    const SizedBox(width: 3),
+                    _ColorDot(color: widget.skin.noseColor),
+                    const SizedBox(width: 3),
+                    _ColorDot(color: widget.skin.flameColor),
+                  ],
+                ),
               ],
             ),
-          ),
-        );
-      },
+
+            // Selected badge
+            if (widget.isSelected)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.accentOrange,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accentOrange.withValues(alpha: 0.4),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: AppColors.white,
+                    size: 12,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small colour preview dot.
+class _ColorDot extends StatelessWidget {
+  const _ColorDot({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.black.withValues(alpha: 0.3),
+          width: 0.5,
+        ),
+      ),
     );
   }
 }

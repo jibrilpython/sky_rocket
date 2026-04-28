@@ -1,0 +1,247 @@
+// ═══════════════════════════════════════════════════════════════════
+// FEATURE INTEGRATION GUIDE
+// ═══════════════════════════════════════════════════════════════════
+//
+// This file documents how to integrate the 6 new features into your
+// game screen and existing gameplay loop.
+//
+// FEATURES IMPLEMENTED:
+// 1. ✅ Achievement Badges with XP rewards
+// 2. ✅ Level System with cosmetics and bet limit unlocks
+// 3. ✅ Rocket Trails/Effects (different colors per skin)
+// 4. ✅ Sound Packs (skipped - you can add audio service if needed)
+// 5. ✅ Bonus Round Triggers (random events modifying multiplier)
+// 6. ✅ Particle Effects (shimmer, explosion, popups)
+//
+// ═══════════════════════════════════════════════════════════════════
+
+// CREATED FILES:
+// ───────────────────────────────────────────────────────────────────
+// Models:
+// - models/achievement.dart          Achievement types and definitions
+// - models/bonus_event.dart          Bonus round event types
+//
+// Providers:
+// - providers/achievement_provider.dart   Achievement tracking & unlocking
+//
+// Widgets:
+// - features/game/widgets/achievement_badge.dart        Badge display
+// - features/game/widgets/bonus_event_notification.dart Event UI
+// - features/game/widgets/particle_effect.dart          Particle animations
+// - features/game/widgets/rocket_trail.dart             Trail effects
+// - features/game/widgets/level_display.dart            Level & XP display
+//
+// UPDATED FILES:
+// ───────────────────────────────────────────────────────────────────
+// - models/player_stats.dart         Added level, totalXP, progression
+// - providers/player_stats_provider.dart   XP earning & level ups
+// - providers/game_provider.dart      Bonus event integration
+// - providers/bet_provider.dart       Achievement checking on cashout
+// - services/storage_service.dart     Achievement persistence
+//
+// ═══════════════════════════════════════════════════════════════════
+// HOW TO INTEGRATE INTO GAME SCREEN
+// ═══════════════════════════════════════════════════════════════════
+
+// Step 1: Import the widgets at the top of game_screen.dart
+// ───────────────────────────────────────────────────────────────────
+/*
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'widgets/achievement_badge.dart';
+import 'widgets/bonus_event_notification.dart';
+import 'widgets/particle_effect.dart';
+import 'widgets/rocket_trail.dart';
+import 'widgets/level_display.dart';
+import '../../../providers/achievement_provider.dart';
+*/
+
+// Step 2: Add RocketTrail behind the game canvas
+// ───────────────────────────────────────────────────────────────────
+/*
+Stack(
+  children: [
+    // Rocket trail effect (add this behind your game widget)
+    if (gameState.phase == GamePhase.flying)
+      RocketTrail(
+        skin: selectedSkin,
+        isFlying: gameState.phase == GamePhase.flying,
+        rocketY: rocketYPosition, // Get this from your Flame component
+      ),
+    
+    // Game canvas (your existing FlameWidget or custom paint)
+    YourGameWidget(...),
+    
+    // Bonus event notification overlay
+    if (gameState.bonusEvent != null && gameState.phase == GamePhase.flying)
+      Positioned(
+        top: 100,
+        left: 0,
+        right: 0,
+        child: Center(
+          child: BonusEventNotification(event: gameState.bonusEvent!),
+        ),
+      ),
+    
+    // Particle effects (add dynamically when needed)
+    // Example: On big cashout:
+    // if (justCashedOutAtHighMultiplier)
+    //   ParticleEffect(
+    //     type: ParticleType.shimmer,
+    //     position: Offset(screenWidth / 2, screenHeight / 2),
+    //     duration: Duration(milliseconds: 1500),
+    //     color: AppColors.accentOrange,
+    //   )
+  ],
+)
+*/
+
+// Step 3: Display level and achievements on the profile/stats screen
+// ───────────────────────────────────────────────────────────────────
+/*
+// Add to your stats/profile screen:
+Column(
+  children: [
+    // Compact level display in header
+    LevelDisplay(compact: true),
+    
+    // Full level display
+    LevelDisplay(compact: false),
+    
+    // Achievement badges grid
+    Consumer(
+      builder: (context, ref, child) {
+        final achievements = ref.watch(achievementProvider);
+        return GridView.builder(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+          ),
+          itemCount: achievements.length,
+          itemBuilder: (context, index) {
+            return AchievementBadge(achievement: achievements[index]);
+          },
+        );
+      },
+    ),
+  ],
+)
+*/
+
+// Step 4: Handle achievement unlock notifications
+// ───────────────────────────────────────────────────────────────────
+/*
+// Listen to newly unlocked achievements and show notifications:
+ref.listen(newlyUnlockedAchievementsProvider, (previous, next) {
+  for (final achievement in next) {
+    // Show notification overlay
+    showDialog(
+      context: context,
+      builder: (context) => AchievementBadgeNotification(achievement: achievement),
+    );
+  }
+});
+*/
+
+// Step 5: Display level bonus unlock info
+// ───────────────────────────────────────────────────────────────────
+/*
+// Max bet is now tied to player level:
+final stats = ref.watch(playerStatsProvider);
+final maxBet = stats.getMaxBetUnlock(); // Returns 100 * level
+
+// Update your bet controls to respect this limit
+maxBetAmount: maxBet
+*/
+
+// ═══════════════════════════════════════════════════════════════════
+// KEY MECHANICS
+// ═══════════════════════════════════════════════════════════════════
+
+// XP PROGRESSION:
+// ─ Base: 10 XP per game
+// ─ Win bonus: +20 XP
+// ─ High multiplier bonus: +(multiplier × 5) XP
+// ─ Achievement bonus: varies (75-500 XP per achievement)
+// ─ Example: Win at 50x = 10 + 20 + 250 = 280 XP
+
+// LEVEL PROGRESSION:
+// ─ Level 1 requires: 100 XP
+// ─ Level 2 requires: 200 XP
+// ─ Level 3 requires: 300 XP
+// ─ Level N requires: 100 × N XP
+// ─ Max bet unlocked = $100 × Level (Level 5 = $500 max)
+
+// ACHIEVEMENTS (10 total):
+// ─ Fifty Times!              (50x cashout) → 100 XP
+// ─ Century Club              (100x cashout) → 250 XP
+// ─ Legend                    (500x cashout) → 500 XP
+// ─ Hot Streak                (5 wins in a row) → 150 XP
+// ─ Unstoppable               (10 wins in a row) → 300 XP
+// ─ Auto Pilot                (10 auto cashouts) → 75 XP
+// ─ Set It and Forget It      (50 auto cashouts) → 200 XP
+// ─ Centennial                (100 games played) → 120 XP
+// ─ Veteran                   (500 games played) → 350 XP
+
+// BONUS EVENTS (20% trigger rate per round):
+// ─ Fuel Boost ⛽  (2.0s in, 1.5x faster for 3s)
+// ─ Time Warp ⏳  (3.0s in, 0.5x slower for 4s)
+// ─ Double Power 💥 (1.5s in, 2.0x boost for 2s)
+// ─ Comet Strike ☄️ (2.5s in, 1.3x modifier for 1s)
+
+// ROCKET TRAILS:
+// ─ Auto-generated using skin.flameColor
+// ─ Expands and fades during flight
+// ─ Different color per rocket skin
+
+// PARTICLE EFFECTS (4 types):
+// ─ shimmer  - Glowing circles with halo
+// ─ explosion - Expanding squares
+// ─ popUp    - Hollow pulsing circles
+// ─ cascade  - Wave pattern
+
+// ═══════════════════════════════════════════════════════════════════
+// TESTING CHECKLIST
+// ═══════════════════════════════════════════════════════════════════
+
+// □ Launch game and verify level display shows correctly
+// □ Complete a game and check XP is awarded
+// □ Earn 100+ XP and verify level up animation plays
+// □ Cash out at 50x and verify Fifty Times! achievement unlocks
+// □ Win 5 in a row and verify Hot Streak achievement triggers
+// □ Play 100+ games total and verify Centennial achievement
+// □ Use auto cashout 10+ times and verify Auto Pilot achievement
+// □ Verify bonus event triggers occasionally (~20% per round)
+// □ Confirm bonus event modifies multiplier curve
+// □ Test particle effects trigger on high multiplier cashouts
+// □ Verify rocket trail appears during flight
+// □ Check achievements persist after app restart
+// □ Verify level increases unlock higher bet amounts
+
+// ═══════════════════════════════════════════════════════════════════
+// OPTIONAL ENHANCEMENTS
+// ═══════════════════════════════════════════════════════════════════
+
+// 1. Add achievement progression display
+//    (e.g., "3/5 wins for Hot Streak")
+
+// 2. Add daily achievements (reset every 24h)
+//    (e.g., "Win 3 games today")
+
+// 3. Add leaderboard based on level/XP
+//    (e.g., show top 10 players)
+
+// 4. Add cosmetic unlocks at certain levels
+//    (e.g., new rocket skin every 5 levels)
+
+// 5. Add sound effects for achievements/level ups
+//    (integrate audio_service package)
+
+// 6. Add particle effect celebrations on major milestones
+//    (e.g., 10-particle burst on level up)
+
+// 7. Add seasonal battle pass with time-limited achievements
+
+// 8. Add multiplier boost packs (e.g., "2x XP for 1 hour")
+
+// ═══════════════════════════════════════════════════════════════════

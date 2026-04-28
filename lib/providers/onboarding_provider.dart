@@ -4,7 +4,7 @@ import 'game_provider.dart';
 /// Manages onboarding completion state.
 class OnboardingNotifier extends StateNotifier<bool> {
   OnboardingNotifier(this._ref) : super(false) {
-    state = !_ref.read(storageServiceProvider).hasCompletedOnboarding();
+    state = _ref.read(storageServiceProvider).hasCompletedOnboarding();
   }
 
   final Ref _ref;

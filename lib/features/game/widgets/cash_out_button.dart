@@ -192,12 +192,13 @@ class _ActionButtonState extends State<_ActionButton>
       child: AnimatedBuilder(
         animation: _shimmerAnim,
         builder: (context, child) {
+          // Outer container owns the border + shadow — no clipping here.
+          // Inner ClipRRect clips only the fill + shimmer, leaving the
+          // border fully visible and perfectly aligned.
           return Container(
             width: double.infinity,
             height: 56,
             decoration: BoxDecoration(
-              color:
-                  isEnabled ? widget.color : widget.color.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: widget.color.withValues(alpha: 0.8),
@@ -218,17 +219,29 @@ class _ActionButtonState extends State<_ActionButton>
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              // Clip radius is border-radius minus border-width so the
+              // inner fill sits flush inside the border.
+              borderRadius: BorderRadius.circular(10.5),
               child: Stack(
                 children: [
-                  // Button label (centred, fits text)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Center(
+                  // Filled background
+                  Positioned.fill(
+                    child: Container(
+                      color: isEnabled
+                          ? widget.color
+                          : widget.color.withValues(alpha: 0.5),
+                    ),
+                  ),
+
+                  // Button label — always perfectly centred
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
                           widget.label,
+                          textAlign: TextAlign.center,
                           style: AppTextStyles.button.copyWith(
                             letterSpacing: 0.8,
                             color: isEnabled
@@ -243,21 +256,22 @@ class _ActionButtonState extends State<_ActionButton>
                   // Shimmer sweep — light bar gliding left→right
                   if (isEnabled)
                     Positioned.fill(
-                      child: Transform.translate(
-                        // Travels from -100% to +200% so glare enters and exits cleanly
-                        offset: Offset(
-                          (_shimmerAnim.value * 3 - 1.0) * 400,
-                          0,
-                        ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.transparent,
-                                Colors.white.withValues(alpha: 0.25),
-                                Colors.transparent,
-                              ],
-                              stops: const [0.0, 0.5, 1.0],
+                      child: IgnorePointer(
+                        child: Transform.translate(
+                          offset: Offset(
+                            (_shimmerAnim.value * 3 - 1.0) * 400,
+                            0,
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.white.withValues(alpha: 0.25),
+                                  Colors.transparent,
+                                ],
+                                stops: const [0.0, 0.5, 1.0],
+                              ),
                             ),
                           ),
                         ),

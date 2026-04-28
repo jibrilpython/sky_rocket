@@ -28,6 +28,21 @@ class PlayerStatsNotifier extends StateNotifier<PlayerStats> {
     final isWin = cashedOutAt != null;
     final profit = isWin ? (betAmount * cashedOutAt) - betAmount : -betAmount;
 
+    // Base XP: 10 XP per game + bonus for wins
+    int earnedXP = 10;
+    if (isWin) {
+      earnedXP += 20; // Win bonus
+      earnedXP += (cashedOutAt * 5).toInt(); // Bonus for high multipliers
+    }
+
+    final newTotalXP = state.totalXP + earnedXP;
+    int newLevel = state.level;
+
+    // Check for level ups
+    while (newTotalXP >= PlayerStats.getTotalXPForLevel(newLevel + 1)) {
+      newLevel++;
+    }
+
     state = state.copyWith(
       totalGames: state.totalGames + 1,
       totalWins: state.totalWins + (isWin ? 1 : 0),
@@ -37,6 +52,26 @@ class PlayerStatsNotifier extends StateNotifier<PlayerStats> {
           ? max(state.bestMultiplier, cashedOutAt)
           : state.bestMultiplier,
       currentStreak: isWin ? state.currentStreak + 1 : 0,
+      totalXP: newTotalXP,
+      level: newLevel,
+    );
+
+    _ref.read(storageServiceProvider).saveStats(state);
+  }
+
+  /// Add XP directly (for achievements, etc).
+  void addXP(int amount) {
+    final newTotalXP = state.totalXP + amount;
+    int newLevel = state.level;
+
+    // Check for level ups
+    while (newTotalXP >= PlayerStats.getTotalXPForLevel(newLevel + 1)) {
+      newLevel++;
+    }
+
+    state = state.copyWith(
+      totalXP: newTotalXP,
+      level: newLevel,
     );
 
     _ref.read(storageServiceProvider).saveStats(state);

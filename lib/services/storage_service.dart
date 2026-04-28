@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/app_constants.dart';
 import '../models/player_stats.dart';
+import '../models/achievement.dart';
 
 /// Wrapper around SharedPreferences for all persistence operations.
 class StorageService {
@@ -89,5 +90,24 @@ class StorageService {
 
   double getSfxVolume() {
     return _prefs.getDouble(AppConstants.keySfxVolume) ?? 0.5;
+  }
+
+  // ── Achievements ────────────────────────────────────────────
+  Future<void> saveAchievements(List<Achievement> achievements) async {
+    final encoded = jsonEncode(achievements.map((a) => a.toJson()).toList());
+    await _prefs.setString('achievements', encoded);
+  }
+
+  List<Achievement> getAchievements() {
+    final encoded = _prefs.getString('achievements');
+    if (encoded == null) return [];
+    try {
+      final json = jsonDecode(encoded) as List;
+      return json
+          .map((item) => Achievement.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 }
