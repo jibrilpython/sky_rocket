@@ -15,6 +15,8 @@ class SkyGame extends FlameGame {
 
   final RocketSkin rocketSkin;
 
+  double get rocketY => _rocket.position.y;
+
   late RocketComponent _rocket;
   final List<CloudComponent> _clouds = [];
   GamePhase _currentPhase = GamePhase.waiting;

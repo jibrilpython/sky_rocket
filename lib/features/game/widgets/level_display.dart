@@ -22,7 +22,8 @@ class LevelDisplay extends ConsumerWidget {
 
     if (compact) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: AppColors.surface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(8),
@@ -42,16 +43,17 @@ class LevelDisplay extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 8),
-            SizedBox(
-              width: 100,
-              height: 4,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(2),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  backgroundColor: AppColors.panelBorder.withValues(alpha: 0.3),
-                  valueColor: AlwaysStoppedAnimation(
-                    AppColors.accentGreen.withValues(alpha: 0.7),
+            Expanded(
+              child: SizedBox(
+                height: 4,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: AppColors.panelBorder.withValues(alpha: 0.3),
+                    valueColor: AlwaysStoppedAnimation(
+                      AppColors.accentGreen.withValues(alpha: 0.7),
+                    ),
                   ),
                 ),
               ),

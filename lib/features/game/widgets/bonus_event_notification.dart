@@ -21,6 +21,8 @@ class _BonusEventNotificationState extends State<BonusEventNotification>
     with SingleTickerProviderStateMixin {
   late AnimationController _scaleCtrl;
   late Animation<double> _scaleAnim;
+  bool _isVisible = true;
+  double _opacity = 1.0;
 
   @override
   void initState() {
@@ -36,12 +38,17 @@ class _BonusEventNotificationState extends State<BonusEventNotification>
 
     _scaleCtrl.forward();
 
-    // Auto-dismiss
+    // Auto-dismiss after 2 seconds
     Future.delayed(
-      Duration(milliseconds: 2000 + widget.event.durationMs),
+      const Duration(seconds: 2),
       () {
         if (mounted) {
-          _scaleCtrl.reverse();
+          setState(() => _opacity = 0.0);
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) {
+              setState(() => _isVisible = false);
+            }
+          });
         }
       },
     );
@@ -55,9 +62,13 @@ class _BonusEventNotificationState extends State<BonusEventNotification>
 
   @override
   Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scaleAnim,
-      child: Container(
+    if (!_isVisible) return const SizedBox.shrink();
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 300),
+      opacity: _opacity,
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -113,6 +124,7 @@ class _BonusEventNotificationState extends State<BonusEventNotification>
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }

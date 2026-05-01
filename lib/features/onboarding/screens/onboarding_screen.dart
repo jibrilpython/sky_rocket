@@ -20,6 +20,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   final PageController _pageController = PageController();
   final TextEditingController _nameController = TextEditingController();
   int _currentPage = 0;
+  bool _isNameEmpty = true;
 
   // Stars animation
   late AnimationController _starsController;
@@ -32,6 +33,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   @override
   void initState() {
     super.initState();
+    _nameController.addListener(() {
+      setState(() {
+        _isNameEmpty = _nameController.text.trim().isEmpty;
+      });
+    });
+    
     _starsController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 10),
@@ -277,31 +284,42 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         key: const ValueKey('getStarted'),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          gradient: const LinearGradient(
-            colors: [AppColors.accentOrange, Color(0xFFFF8F35)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accentOrange.withValues(alpha: 0.4),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          gradient: _isNameEmpty
+              ? LinearGradient(
+                  colors: [
+                    AppColors.accentOrange.withValues(alpha: 0.3),
+                    Color(0xFFFF8F35).withValues(alpha: 0.3),
+                  ],
+                )
+              : const LinearGradient(
+                  colors: [AppColors.accentOrange, Color(0xFFFF8F35)],
+                ),
+          boxShadow: _isNameEmpty
+              ? []
+              : [
+                  BoxShadow(
+                    color: AppColors.accentOrange.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
         child: ElevatedButton(
-          onPressed: _onGetStarted,
+          onPressed: _isNameEmpty ? null : _onGetStarted,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
+            disabledBackgroundColor: Colors.transparent,
           ),
           child: Text(
             'GET STARTED',
             style: AppTextStyles.button.copyWith(
               fontSize: 18,
               letterSpacing: 1,
+              color: _isNameEmpty ? AppColors.textMuted : AppColors.white,
             ),
           ),
         ),

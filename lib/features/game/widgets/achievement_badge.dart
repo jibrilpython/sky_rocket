@@ -23,6 +23,7 @@ class _AchievementBadgeNotificationState
   late AnimationController _slideCtrl;
   late Animation<Offset> _slideAnim;
   late Animation<double> _fadeAnim;
+  bool _isVisible = true;
 
   @override
   void initState() {
@@ -44,10 +45,14 @@ class _AchievementBadgeNotificationState
 
     _slideCtrl.forward();
 
-    // Auto-dismiss after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
+    // Auto-dismiss after 2 seconds
+    Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
-        _slideCtrl.reverse();
+        _slideCtrl.reverse().then((_) {
+          if (mounted) {
+            setState(() => _isVisible = false);
+          }
+        });
       }
     });
   }
@@ -60,11 +65,14 @@ class _AchievementBadgeNotificationState
 
   @override
   Widget build(BuildContext context) {
-    return SlideTransition(
-      position: _slideAnim,
-      child: FadeTransition(
-        opacity: _fadeAnim,
-        child: Container(
+    if (!_isVisible) return const SizedBox.shrink();
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 350),
+      child: SlideTransition(
+        position: _slideAnim,
+        child: FadeTransition(
+          opacity: _fadeAnim,
+          child: Container(
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
@@ -156,7 +164,8 @@ class _AchievementBadgeNotificationState
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

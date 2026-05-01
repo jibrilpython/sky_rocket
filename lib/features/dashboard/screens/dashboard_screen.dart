@@ -10,6 +10,7 @@ import '../../../providers/game_provider.dart';
 import '../../../providers/player_stats_provider.dart';
 import '../widgets/flight_chart.dart';
 import '../widgets/stat_card.dart';
+import '../../game/widgets/level_display.dart';
 
 /// Premium dashboard overlay showing player stats and flight performance.
 class DashboardScreen extends ConsumerWidget {
@@ -33,8 +34,7 @@ class DashboardScreen extends ConsumerWidget {
       maxChildSize: 0.95,
       builder: (context, scrollController) {
         return ClipRRect(
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Container(
@@ -42,13 +42,11 @@ class DashboardScreen extends ConsumerWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF1E1E38),
-                    AppColors.darkNavy,
-                  ],
+                  colors: [Color(0xFF1E1E38), AppColors.darkNavy],
                 ),
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
                 border: Border(
                   top: BorderSide(
                     color: AppColors.accentOrange.withValues(alpha: 0.3),
@@ -84,7 +82,9 @@ class DashboardScreen extends ConsumerWidget {
                   // Header
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 8),
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: [
                         // Player avatar circle
@@ -103,8 +103,9 @@ class DashboardScreen extends ConsumerWidget {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.accentOrange
-                                    .withValues(alpha: 0.3),
+                                color: AppColors.accentOrange.withValues(
+                                  alpha: 0.3,
+                                ),
                                 blurRadius: 10,
                                 spreadRadius: 1,
                               ),
@@ -139,12 +140,14 @@ class DashboardScreen extends ConsumerWidget {
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: AppColors.accentOrange
-                                          .withValues(alpha: 0.15),
-                                      borderRadius:
-                                          BorderRadius.circular(10),
+                                      color: AppColors.accentOrange.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
                                       '${stats.totalGames} GAMES',
@@ -158,12 +161,14 @@ class DashboardScreen extends ConsumerWidget {
                                   const SizedBox(width: 6),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 2),
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: AppColors.accentGreen
-                                          .withValues(alpha: 0.15),
-                                      borderRadius:
-                                          BorderRadius.circular(10),
+                                      color: AppColors.accentGreen.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
                                       '$winRate% WIN',
@@ -189,7 +194,9 @@ class DashboardScreen extends ConsumerWidget {
                               color: AppColors.surface.withValues(alpha: 0.6),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: AppColors.panelBorder.withValues(alpha: 0.5),
+                                color: AppColors.panelBorder.withValues(
+                                  alpha: 0.5,
+                                ),
                               ),
                             ),
                             child: const Icon(
@@ -228,6 +235,11 @@ class DashboardScreen extends ConsumerWidget {
 
                         const SizedBox(height: 20),
 
+                        // ── Level Display ──────────────────────
+                        const LevelDisplay(),
+
+                        const SizedBox(height: 20),
+
                         // Section label
                         _SectionLabel(
                           title: 'STATISTICS',
@@ -254,7 +266,8 @@ class DashboardScreen extends ConsumerWidget {
                               icon: Icons.trending_up_rounded,
                               label: 'Net Profit',
                               value: NumberFormatter.formatCurrency(
-                                  stats.netProfit),
+                                stats.netProfit,
+                              ),
                               valueColor: stats.netProfit >= 0
                                   ? AppColors.accentGreen
                                   : AppColors.accentRed,
@@ -317,9 +330,7 @@ class DashboardScreen extends ConsumerWidget {
                           icon: Icons.show_chart_rounded,
                         ),
                         const SizedBox(height: 12),
-                        FlightChart(
-                          roundMultipliers: gameState.roundHistory,
-                        ),
+                        FlightChart(roundMultipliers: gameState.roundHistory),
 
                         const SizedBox(height: 20),
                       ],
@@ -380,11 +391,7 @@ class _BalanceHeroCardState extends State<_BalanceHeroCard>
                 AppColors.accentGreen.withValues(alpha: 0.06),
                 AppColors.accentGreen.withValues(alpha: 0.12),
               ],
-              stops: [
-                0,
-                _shimmerCtrl.value,
-                1,
-              ],
+              stops: [0, _shimmerCtrl.value, 1],
             ),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
@@ -442,19 +449,27 @@ class _BalanceHeroCardState extends State<_BalanceHeroCard>
               // Copy button
               GestureDetector(
                 onTap: () {
-                  Clipboard.setData(ClipboardData(
-                    text: NumberFormatter.formatCurrency(widget.balance),
-                  ));
+                  Clipboard.setData(
+                    ClipboardData(
+                      text: NumberFormatter.formatCurrency(widget.balance),
+                    ),
+                  );
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Row(
                         children: [
-                          const Icon(Icons.check_circle_rounded,
-                              color: AppColors.accentGreen, size: 16),
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: AppColors.accentGreen,
+                            size: 16,
+                          ),
                           const SizedBox(width: 8),
-                          Text('Balance copied!',
-                              style: AppTextStyles.bodySmall
-                                  .copyWith(color: AppColors.textPrimary)),
+                          Text(
+                            'Balance copied!',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
                         ],
                       ),
                       backgroundColor: AppColors.darkNavyLight,
@@ -476,8 +491,11 @@ class _BalanceHeroCardState extends State<_BalanceHeroCard>
                       color: AppColors.accentGreen.withValues(alpha: 0.3),
                     ),
                   ),
-                  child: const Icon(Icons.copy_rounded,
-                      color: AppColors.accentGreen, size: 16),
+                  child: const Icon(
+                    Icons.copy_rounded,
+                    color: AppColors.accentGreen,
+                    size: 16,
+                  ),
                 ),
               ),
             ],
@@ -546,10 +564,7 @@ class _MiniStatPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withValues(alpha: 0.2),
-          width: 1,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
       ),
       child: Column(
         children: [

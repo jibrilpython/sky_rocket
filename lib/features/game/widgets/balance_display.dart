@@ -54,8 +54,9 @@ class _BalanceDisplayState extends State<BalanceDisplay>
     final flashColor = isUp ? AppColors.accentGreen : AppColors.accentRed;
 
     return AnimatedContainer(
+      height: 40,
       duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,

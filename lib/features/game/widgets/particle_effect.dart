@@ -40,9 +40,7 @@ class _ParticleEffectState extends State<ParticleEffect>
     _controller = AnimationController(
       duration: widget.duration,
       vsync: this,
-    )..forward().whenComplete(() {
-        if (mounted) Navigator.of(context).pop();
-      });
+    )..forward();
 
     _generateParticles();
   }

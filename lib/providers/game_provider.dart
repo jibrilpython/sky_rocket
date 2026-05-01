@@ -6,6 +6,7 @@ import '../models/bonus_event.dart';
 import '../services/crash_algorithm_service.dart';
 import '../services/storage_service.dart';
 import 'player_stats_provider.dart';
+import 'bet_provider.dart';
 
 /// The current phase of the game.
 enum GamePhase {
@@ -173,12 +174,15 @@ class GameNotifier extends StateNotifier<GameState> {
     // Persist history
     _storageService.saveRoundHistory(updatedHistory);
 
-    // Update stats for players who didn't cash out (loss handled in bet_provider)
-    _ref.read(playerStatsProvider.notifier).onRoundComplete(
-          crashPoint: state.crashPoint,
-          cashedOutAt: null,
-          betAmount: 0,
-        );
+    // Update stats for players who didn't cash out
+    final betState = _ref.read(betProvider);
+    if (betState.hasBet) {
+      _ref.read(playerStatsProvider.notifier).onRoundComplete(
+            crashPoint: state.crashPoint,
+            cashedOutAt: null,
+            betAmount: betState.betAmount,
+          );
+    }
 
     // Wait 3 seconds then start next round
     Future.delayed(

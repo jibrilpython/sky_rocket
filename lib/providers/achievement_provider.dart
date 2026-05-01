@@ -111,10 +111,15 @@ final totalAchievementXpProvider = Provider<int>((ref) {
       .fold<int>(0, (sum, a) => sum + a.xpReward);
 });
 
+final DateTime _appSessionStartTime = DateTime.now();
+
 /// Provider to get newly unlocked achievements.
 final newlyUnlockedAchievementsProvider = Provider<List<Achievement>>((ref) {
   final achievements = ref.watch(achievementProvider);
   return achievements
-      .where((a) => a.unlocked && a.unlockedAt != null)
+      .where((a) =>
+          a.unlocked &&
+          a.unlockedAt != null &&
+          a.unlockedAt!.isAfter(_appSessionStartTime))
       .toList();
 });
